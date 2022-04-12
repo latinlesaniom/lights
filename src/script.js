@@ -1,147 +1,122 @@
 import './style.css'
 import * as THREE from 'three'
-import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
-import * as dat from 'dat.gui'
-import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js'
-import { RectAreaLight } from 'three'
-
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import * as dat from 'lil-gui'
+import { DirectionalLightHelper, PCFShadowMap } from 'three'
 
 /**
  * Base
  */
+
+//Debug
 const gui = new dat.GUI({
     width: 400
 })
-const debugObject = {}
+
 
 //canvas
 const canvas = document.querySelector('canvas.webgl')
-debugObject.colorStart = '#36494f'
-debugObject.colorEnd = '#263337'
+
 
 /**
- * Scene
+ * scene
  */
 const scene = new THREE.Scene()
 
+
 /**
- * Geometry
+ * ambient Light
  */
-//plane
-const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(5, 5),
-    new THREE.MeshStandardMaterial(
-        {
-          //color: debugObject.colorStart, 
-            side:  THREE.DoubleSide,
-         // metalness: 0.7,
-            roughness: 5
-        })
-)
-plane.rotation.x = - Math.PI * 0.5
-plane.position.y = - 0.5
-plane.receiveShadow = true
-plane.castShadow = true
-scene.add(plane)
-
-//plane
-const SecondPlane = new THREE.PlaneGeometry(2, 2)
-const material = new THREE.MeshStandardMaterial(
-    {
-    //  color: debugObject.colorEnd,
-        side: THREE.DoubleSide,
-    //  metalness: 0.7,
-        roughness: 5
-    })
-const mesh = new THREE.Mesh(SecondPlane, material)
-mesh.position.y = 0.45
-SecondPlane.receiveShadow = true
-SecondPlane.castShadow = true
-scene.add(mesh)
-
-/**
- * Ambient Light
-*/
-const AmbientLight = new THREE.AmbientLight(0xffffff, 0.5)
-AmbientLight.color = new THREE.Color(0xffffff)
-AmbientLight.intensity = 0
+const AmbientLight = new THREE.AmbientLight(0xffffff, 0.3)
+gui.add(AmbientLight, 'intensity').min(0).max(1).step(0.001).name('AmbientLight-Intensity')
 scene.add(AmbientLight)
 
-/**
- * ReactAreaLight
- */
-
-const area = {}
-area.width = 1
-area.height = 1
-const intensity = 2
-const rectLight = new RectAreaLight(0Xffffff, intensity, area.width, area.height)
-rectLight.position.set(0,  1.8, -2)
-rectLight.lookAt(0, 0, 0)
-rectLight.castShadow = true
-rectLight.receiveShadow = true
-scene.add(rectLight)
-
-
-gui.add(rectLight, 'width').min(0).max(2).step(0.001)
-gui.add(rectLight, 'height').min(0).max(5).step(0.001)
-gui.add(rectLight, 'intensity').min(0).max(3).step(0.01)
-gui.add(rectLight.position, 'x').min(-3).max(3).step(0.001)
-gui.add(rectLight.position, 'y').min(-1).max(2).step(0.001)
-gui.add(rectLight.position, 'z').min(-1).max(2).step(0.001)
-
-const rectLightHelper = new RectAreaLightHelper(rectLight)
-rectLight.add(rectLightHelper)
-
-
-
-
 
 /**
- * sizes
+ * directionalLight
  */
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.3)
+directionalLight.position.set(0, 1.8, -2)
+directionalLight.lookAt(0, 0, 0)
+
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.width = 1024
+directionalLight.shadow.mapSize.height = 1024
+directionalLight.shadow.camera.near = 1
+directionalLight.shadow.camera.far = 6
+directionalLight.shadow.camera.top = 2
+directionalLight.shadow.camera.right = 2
+directionalLight.shadow.camera.left = -2
+directionalLight.shadow.camera.bottom = -2
+directionalLight.shadow.radius = 10
+
+
+const directionalLightaHelper = new THREE.CameraHelper(directionalLight.shadow.camera)
+scene.add(directionalLightaHelper)
+directionalLightaHelper.visible = false
+gui.add(directionalLight, 'intensity').min(0).max(5).step(0.001).name('DirectionalLight-Intensity')
+scene.add(directionalLight)
+
+const material = new THREE.MeshStandardMaterial({
+    side: THREE.DoubleSide,
+    metalness: 1,
+    roughness: 0.5
+})
+gui.add(material, 'metalness').min(0).max(2).step(0.001)
+gui.add(material, 'roughness').min(0).max(1).step(0.001)
+gui.add(directionalLight.position, 'x').min(-2).max(4).step(0.001)
+
+const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 5),
+    material
+)
+plane.rotation.x = -Math.PI * 0.5
+plane.position.y = -0.5
+plane.receiveShadow = true
+
+const plane2 = new THREE.Mesh(
+    new THREE.PlaneGeometry(2, 2),
+    material
+)
+plane2.position.y =  0.5
+plane2.castShadow = true
+scene.add(plane, plane2)
+
+
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight
 }
+
 window.addEventListener('resize', () => {
     //update sizes
     sizes.width = window.innerWidth
     sizes.height = window.innerHeight
 
-    //update Camera
+    //update camera
     camera.aspect = sizes.width / sizes.height
     camera.updateProjectionMatrix()
 
-    //update renderer
+    //update resize
     renderer.setSize(sizes.width, sizes.height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 })
 
-const cursor = {}
-cursor.x = 0
-cursor.y = 0
-
-window.addEventListener('mousemove', (event) => {
-    cursor.x = event.clientX / sizes.width - 0.5
-    cursor.y = - (event.clientY / sizes.height - 0.5)
-})
 
 /**
  * camera
  */
-//base camera
-const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+const camera = new THREE.PerspectiveCamera( 75, sizes.width /  sizes.height, 0.1, 100)
 camera.position.set(5, 5, 7)
-scene.add(camera) 
+scene.add(camera)
 
 
-//controls
+/**
+ * controls
+ */
 const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = false
+controls.enableDamping = true
 
-
-//renderer
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas
 })
@@ -150,39 +125,36 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFShadowMap
 
+/**
+ * Anemate
+ */
 
 const clock = new THREE.Clock()
 
+
+
 const tick = () => {
 
-    
-   /* camera.position.y = - scrollY / sizes.height * 2
-    const parallaxX = cursor.x
-    const parallaxY = cursor.y
-    camera.position.x = parallaxX
-    camera.position.y = parallaxY*/
-
-
     const elapsedTime = clock.getElapsedTime()
-
-    const ghostAngle = elapsedTime * 0.5
-    
-
-
-//    sphere.material.uniforms.uTime.value = elapsedTime
-
-//    matParticles.uniforms.uTime.value = elapsedTime
 
     //update controls
     controls.update()
 
-    //renderer
+
+    directionalLight.position.x = Math.cos(elapsedTime) * 1.5 
+
+
+
+    
+
+    //render
     renderer.render(scene, camera)
 
-    //call tick again on the next frame
 
+    //call tick again the next frame
     window.requestAnimationFrame(tick)
 
 }
-
 tick()
+
+
